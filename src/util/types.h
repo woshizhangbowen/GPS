@@ -93,7 +93,7 @@ typedef uint32_t point2D_t;
 typedef uint64_t point3D_t;
 
 // Values for invalid identifiers or indices.
-const camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
+const camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();  // 4294967295
 const image_t kInvalidImageId = std::numeric_limits<image_t>::max();
 const image_pair_t kInvalidImagePairId =
     std::numeric_limits<image_pair_t>::max();

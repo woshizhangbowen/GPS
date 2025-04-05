@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+﻿// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@
 namespace colmap {
 
 Camera::Camera()
-    : camera_id_(kInvalidCameraId),
+    : camera_id_(kInvalidCameraId),   //无效相机id设置最大值
       model_id_(kInvalidCameraModelId),
       width_(0),
       height_(0),
@@ -51,7 +51,7 @@ std::string Camera::ModelName() const { return CameraModelIdToName(model_id_); }
 void Camera::SetModelId(const int model_id) {
   CHECK(ExistsCameraModelWithId(model_id));
   model_id_ = model_id;
-  params_.resize(CameraModelNumParams(model_id_), 0);
+  params_.resize(CameraModelNumParams(model_id_), 0);  // 返回给定 model_id 对应的相机模型所需的参数数量
 }
 
 void Camera::SetModelIdFromName(const std::string& model_name) {
@@ -72,7 +72,7 @@ const std::vector<size_t>& Camera::ExtraParamsIdxs() const {
   return CameraModelExtraParamsIdxs(model_id_);
 }
 
-Eigen::Matrix3d Camera::CalibrationMatrix() const {
+Eigen::Matrix3d Camera::CalibrationMatrix() const {  // 用于计算相机的 ​内参矩阵​（Calibration Matrix）,也就是K矩阵
   Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
 
   const std::vector<size_t>& idxs = FocalLengthIdxs();
@@ -108,20 +108,20 @@ double Camera::MeanFocalLength() const {
 
 double Camera::FocalLength() const {
   const std::vector<size_t>& idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 1);
-  return params_[idxs[0]];
+  CHECK_EQ(idxs.size(), 1);    // 相机模型必须有一个参数
+  return params_[idxs[0]];   // 相机的投影是对称的 fx = fy
 }
 
 double Camera::FocalLengthX() const {
   const std::vector<size_t>& idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 2);
-  return params_[idxs[0]];
+  CHECK_EQ(idxs.size(), 2);  
+  return params_[idxs[0]];   // 返回相机模型参数的第一个参数fx
 }
 
 double Camera::FocalLengthY() const {
   const std::vector<size_t>& idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 2);
-  return params_[idxs[1]];
+  return params_[idxs[1]];   // 返回相机模型参数的第二个参数fy
 }
 
 void Camera::SetFocalLength(const double focal_length) {
@@ -143,7 +143,7 @@ void Camera::SetFocalLengthY(const double focal_length_y) {
   params_[idxs[1]] = focal_length_y;
 }
 
-double Camera::PrincipalPointX() const {
+double Camera::PrincipalPointX() const {       // 返回主点的x坐标
   const std::vector<size_t>& idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
   return params_[idxs[0]];
@@ -158,7 +158,7 @@ double Camera::PrincipalPointY() const {
 void Camera::SetPrincipalPointX(const double ppx) {
   const std::vector<size_t>& idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
-  params_[idxs[0]] = ppx;
+  params_[idxs[0]] = ppx;   // ​ppx:Principal Point X 
 }
 
 void Camera::SetPrincipalPointY(const double ppy) {
@@ -167,7 +167,7 @@ void Camera::SetPrincipalPointY(const double ppy) {
   params_[idxs[1]] = ppy;
 }
 
-std::string Camera::ParamsToString() const { return VectorToCSV(params_); }
+std::string Camera::ParamsToString() const { return VectorToCSV(params_); }  // 返回相机参数的CSV(逗号分隔值)字符串
 
 bool Camera::SetParamsFromString(const std::string& string) {
   const std::vector<double> new_camera_params = CSVToVector<double>(string);
@@ -210,7 +210,7 @@ void Camera::InitializeWithName(const std::string& model_name,
 Eigen::Vector2d Camera::ImageToWorld(const Eigen::Vector2d& image_point) const {
   Eigen::Vector2d world_point;
   CameraModelImageToWorld(model_id_, params_, image_point(0), image_point(1),
-                          &world_point(0), &world_point(1));
+                          &world_point(0), &world_point(1));  // image_point(0):图像点的 x 坐标
   return world_point;
 }
 
@@ -225,7 +225,7 @@ Eigen::Vector2d Camera::WorldToImage(const Eigen::Vector2d& world_point) const {
   return image_point;
 }
 
-void Camera::Rescale(const double scale) {
+void Camera::Rescale(const double scale) {  // 使用给定的比例，对相机的图像分辨率和内参进行缩放
   CHECK_GT(scale, 0.0);
   const double scale_x =
       std::round(scale * width_) / static_cast<double>(width_);
@@ -246,7 +246,7 @@ void Camera::Rescale(const double scale) {
   }
 }
 
-void Camera::Rescale(const size_t width, const size_t height) {
+void Camera::Rescale(const size_t width, const size_t height) {  // 通过新图像输入长款，计算比例，然后缩放内参
   const double scale_x =
       static_cast<double>(width) / static_cast<double>(width_);
   const double scale_y =

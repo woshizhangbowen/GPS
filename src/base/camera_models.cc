@@ -57,7 +57,7 @@ CAMERA_MODEL_CASES
 
 #undef CAMERA_MODEL_CASE
 
-std::unordered_map<std::string, int> InitialzeCameraModelNameToId() {
+std::unordered_map<std::string, int> InitialzeCameraModelNameToId() {  // 用于将相机模型的名称（model_name）映射到对应的 ID（model_id）
   std::unordered_map<std::string, int> camera_model_name_to_id;
 
 #define CAMERA_MODEL_CASE(CameraModel)                     \
@@ -86,7 +86,7 @@ std::unordered_map<int, std::string> InitialzeCameraModelIdToName() {
 }
 
 static const std::unordered_map<std::string, int> CAMERA_MODEL_NAME_TO_ID =
-    InitialzeCameraModelNameToId();
+    InitialzeCameraModelNameToId();  // 定义一个静态常量变量 CAMERA_MODEL_NAME_TO_ID,用 InitialzeCameraModelNameToId() 函数，初始化这个变量为一个哈希表.确保内容在程序运行期间是只读的，且只会初始化一次
 
 static const std::unordered_map<int, std::string> CAMERA_MODEL_ID_TO_NAME =
     InitialzeCameraModelIdToName();
@@ -99,12 +99,12 @@ bool ExistsCameraModelWithId(const int model_id) {
   return CAMERA_MODEL_ID_TO_NAME.count(model_id) > 0;
 }
 
-int CameraModelNameToId(const std::string& model_name) {
-  const auto it = CAMERA_MODEL_NAME_TO_ID.find(model_name);
+int CameraModelNameToId(const std::string& model_name) {   //通过查找静态常量哈希表 CAMERA_MODEL_NAME_TO_ID 将相机模型的名称映射到对应的ID
+  const auto it = CAMERA_MODEL_NAME_TO_ID.find(model_name);  // 查找哈希表
   if (it == CAMERA_MODEL_NAME_TO_ID.end()) {
-    return kInvalidCameraModelId;
+    return kInvalidCameraModelId;  // 返回 kInvalidCameraModelId，表示无效的相机模型 ID
   } else {
-    return it->second;
+    return it->second;  //it 是一个迭代器，指向哈希表中的一个键值对,it->first 是键,即 model_name;it->second 是值,即与 model_name 对应的 model_id
   }
 }
 
@@ -121,8 +121,8 @@ std::vector<double> CameraModelInitializeParams(const int model_id,
                                                 const double focal_length,
                                                 const size_t width,
                                                 const size_t height) {
-  // Assuming that image measurements are within [0, dim], i.e. that the
-  // upper left corner is the (0, 0) coordinate (rather than the center of
+  // Assuming that image measurements are within [0, dim], i.e. that the       假设图像测量值在 [0, dim] 范围内，即左上角的坐标是 (0, 0)（而不是左上角像素的中心）
+  // upper left corner is the (0, 0) coordinate (rather than the center of     这符合 SiftGPU 的默认约定
   // the upper left pixel). This complies with the default SiftGPU convention.
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                 \
@@ -198,7 +198,7 @@ const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id) {
   return EMPTY_IDXS;
 }
 
-size_t CameraModelNumParams(const int model_id) {
+size_t CameraModelNumParams(const int model_id) {  // 根据相机模型的 ID返回该相机模型所需的参数数量
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel) \
   case CameraModel::kModelId:          \

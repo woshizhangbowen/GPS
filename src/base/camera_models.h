@@ -44,38 +44,38 @@
 namespace colmap {
 
 // This file defines several different camera models and arbitrary new camera
-// models can be added by the following steps:
+// models can be added by the following steps:此文件定义了几种不同的相机模型，通过以下步骤可以添加任意新的相机模型：
 //
-//  1. Add a new struct in this file which implements all the necessary methods.
-//  2. Define an unique model_name and model_id for the camera model.
-//  3. Add camera model to `CAMERA_MODEL_CASES` macro in this file.
-//  4. Add new template specialization of test case for camera model to
+//  1. Add a new struct in this file which implements all the necessary methods. 在此文件中添加一个新的结构体，并实现所有必要的方法。
+//  2. Define an unique model_name and model_id for the camera model. 为该相机模型定义一个唯一的 model_name 和 model_id
+//  3. Add camera model to `CAMERA_MODEL_CASES` macro in this file. 在此文件中将相机模型添加到 CAMERA_MODEL_CASES 宏中
+//  4. Add new template specialization of test case for camera model to 向 camera_models_test.cc 中添加针对该相机模型的新模板特化测试用例
 //     `camera_models_test.cc`.
 //
-// A camera model can have three different types of camera parameters: focal
-// length, principal point, extra parameters (distortion parameters). The
-// parameter array is split into different groups, so that we can enable or
-// disable the refinement of the individual groups during bundle adjustment. It
+// A camera model can have three different types of camera parameters: focal 相机模型可以有三种不同类型的相机参数：焦距、主点和额外参数（畸变参数）
+// length, principal point, extra parameters (distortion parameters). The    参数数组被划分为不同的组。这样我们可以在捆绑调整（bundle adjustment）期间
+// parameter array is split into different groups, so that we can enable or   启用或禁用对各个组的参数进行优化。 如何正确访问这些参数由相机模型自行决定
+// disable the refinement of the individual groups during bundle adjustment. It（可以以任意方式处理）——这些参数不会从外部访问。
 // is up to the camera model to access the parameters correctly (it is free to
 // do so in an arbitrary manner) - the parameters are not accessed from outside.
 //
-// A camera model must have the following methods:
+// A camera model must have the following methods:                              相机模型必须具有以下方法
 //
-//  - `WorldToImage`: transform normalized camera coordinates to image
-//    coordinates (the inverse of `ImageToWorld`). Assumes that the world
+//  - `WorldToImage`: transform normalized camera coordinates to image          WorldToImage   将归一化相机坐标转换为图像坐标（ImageToWorld 的逆操作）
+//    coordinates (the inverse of `ImageToWorld`). Assumes that the world        假设世界坐标的输入形式为 (u, v, 1)
 //    coordinates are given as (u, v, 1).
-//  - `ImageToWorld`: transform image coordinates to normalized camera
+//  - `ImageToWorld`: transform image coordinates to normalized camera          ImageToWorld   输出的世界坐标形式为 (u, v, 1)。
 //    coordinates (the inverse of `WorldToImage`). Produces world coordinates
 //    as (u, v, 1).
-//  - `ImageToWorldThreshold`: transform a threshold given in pixels to
-//    normalized units (e.g. useful for reprojection error thresholds).
-//
-// Whenever you specify the camera parameters in a list, they must appear
+//  - `ImageToWorldThreshold`: transform a threshold given in pixels to        ImageToWorldThreshold：将像素空间的阈值转换为归一化相机坐标空间的阈值，让误差判断在不同坐标系下保持物理意义的一致性
+//    normalized units (e.g. useful for reprojection error thresholds).        例如，用于重投影误差阈值时很有用（重投影误差必须小于 5 像素，这时需要将 "5 像素" 转换为归一化单位）公式：pixel_threshold / focal_length
+//                                                                            （因为坐标是用归一化单位（例如：以焦距 f 为尺度的无单位值）表示的） 如果焦距是 1000 像素，那么 5 像素的误差相当于归一化空间的 5/1000 = 0.005 单位 
+// Whenever you specify the camera parameters in a list, they must appear       // 在列表中指定相机参数时，它们的顺序必须与定义的模型结构体中访问这些参数的顺序完全一致。
 // exactly in the order as they are accessed in the defined model struct.
 //
-// The camera models follow the convention that the upper left image corner has
+// The camera models follow the convention that the upper left image corner has    相机模型遵循以下约定：图像左上角的坐标为 (0, 0)，右下角的坐标为 (width, height)，
 // the coordinate (0, 0), the lower right corner (width, height), i.e. that
-// the upper left pixel center has coordinate (0.5, 0.5) and the lower right
+// the upper left pixel center has coordinate (0.5, 0.5) and the lower right       左上角像素中心的坐标为 (0.5, 0.5)，右下角像素中心的坐标为 (width - 0.5, height - 0.5)
 // pixel center has the coordinate (width - 0.5, height - 0.5).
 
 static const int kInvalidCameraModelId = -1;
@@ -114,6 +114,16 @@ static const int kInvalidCameraModelId = -1;
                          T* dv);
 #endif
 
+/*
+model_id_value：相机模型id值    num_params_value：相机模型参数个数   params_info：相机模型参数信息   focal_length_idxs：存储焦距参数在参数数组中的索引，比如可能是params[0]
+principal_point_idxs：存储主点坐标（光心）在参数数组中的索引，cx 和 cy 可能分别对应 params[1] 和 params[2]     extra_params_idxs：存储畸变参数在参数数组中的索引，k1, k2, k3 可能对应 params[3]、params[4] 和 params[5]
+InitializeParams：根据给定的焦距 focal_length 和图像宽高 width, height 初始化参数列表，通常用于相机参数的默认初始化。
+WorldToImage：将世界坐标系下的点投影到图像坐标系。params：相机模型参数数组；u, v：三维空间点的归一化坐标（未投影）；x, y：投影到图像上的二维坐标（像素坐标）
+Distortion：校正或模拟镜头畸变。extra_params：畸变参数数组（例如径向畸变 k1, k2, k3）；u, v：未畸变的坐标；du, dv：畸变后的坐标增量
+
+*/
+
+
 #ifndef CAMERA_MODEL_CASES
 #define CAMERA_MODEL_CASES                          \
   CAMERA_MODEL_CASE(SimplePinholeCameraModel)       \
@@ -140,46 +150,46 @@ static const int kInvalidCameraModelId = -1;
 #define CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION \
   throw std::domain_error("Camera model does not exist");
 
-// The "Curiously Recurring Template Pattern" (CRTP) is used here, so that we
-// can reuse some shared functionality between all camera models -
-// defined in the BaseCameraModel.
-template <typename CameraModel>
+// The "Curiously Recurring Template Pattern" (CRTP) is used here, so that we     这里使用了“奇异递归模板模式”（CRTP），以便在
+// can reuse some shared functionality between all camera models -                所有相机模型之间复用一些共享功能，
+// defined in the BaseCameraModel.                                                这些功能在 BaseCameraModel 中定义
+template <typename CameraModel>  // CRTP 作用：让 BaseCameraModel 在继承时可以使用 CameraModel 作为派生类，从而在基类中调用派生类的方法
 struct BaseCameraModel {
   template <typename T>
   static inline bool HasBogusParams(const std::vector<T>& params,
                                     const size_t width, const size_t height,
-                                    const T min_focal_length_ratio,
+                                    const T min_focal_length_ratio,  // 焦距的最小和最大允许比例
                                     const T max_focal_length_ratio,
-                                    const T max_extra_param);
+                                    const T max_extra_param);  // 检查相机参数是否异常, 如果参数无效，返回 true
 
   template <typename T>
   static inline bool HasBogusFocalLength(const std::vector<T>& params,
                                          const size_t width,
                                          const size_t height,
                                          const T min_focal_length_ratio,
-                                         const T max_focal_length_ratio);
+                                         const T max_focal_length_ratio);  // 检查焦距
 
   template <typename T>
   static inline bool HasBogusPrincipalPoint(const std::vector<T>& params,
                                             const size_t width,
-                                            const size_t height);
+                                            const size_t height);  // 检查主点
 
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
-                                         const T max_extra_param);
+                                         const T max_extra_param);  // 检查畸变参数
 
   template <typename T>
-  static inline T ImageToWorldThreshold(const T* params, const T threshold);
+  static inline T ImageToWorldThreshold(const T* params, const T threshold);  // 根据相机参数 params，将图像空间中的 threshold（阈值）转换为世界坐标空间的阈值 返回值：转换后的世界坐标阈值。
 
   template <typename T>
-  static inline void IterativeUndistortion(const T* params, T* u, T* v);
+  static inline void IterativeUndistortion(const T* params, T* u, T* v);  // 将图像坐标 (u, v) 进行迭代去畸变处理，使其更加符合真实世界坐标。无返回值，直接修改 u, v 的值
 };
 
 // Simple Pinhole camera model.
 //
-// No Distortion is assumed. Only focal length and principal point is modeled.
+// No Distortion is assumed. Only focal length and principal point is modeled. 假设无畸变，仅对焦距和主点进行建模
 //
-// Parameter list is expected in the following order:
+// Parameter list is expected in the following order:  // 模型参数列表的顺序
 //
 //   f, cx, cy
 //
@@ -187,7 +197,7 @@ struct BaseCameraModel {
 struct SimplePinholeCameraModel
     : public BaseCameraModel<SimplePinholeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(0, "SIMPLE_PINHOLE", 3)
-};
+};  // struct 定义了一种继承方式，其中 SimplePinholeCameraModel 继承自 BaseCameraModel<SimplePinholeCameraModel>.这是CRTP的典型用法。
 
 // Pinhole camera model.
 //
@@ -205,8 +215,8 @@ struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
 // Simple camera model with one focal length and one radial distortion
 // parameter.
 //
-// This model is similar to the camera model that VisualSfM uses with the
-// difference that the distortion here is applied to the projections and
+// This model is similar to the camera model that VisualSfM uses with the  // 类似于 VisualSfM 使用的相机模型
+// difference that the distortion here is applied to the projections and   // 不同之处在于，这里的畸变作用于投影，而不是测量值。
 // not to the measurements.
 //
 // Parameter list is expected in the following order:
@@ -218,11 +228,11 @@ struct SimpleRadialCameraModel
   CAMERA_MODEL_DEFINITIONS(2, "SIMPLE_RADIAL", 4)
 };
 
-// Simple camera model with one focal length and two radial distortion
+// Simple camera model with one focal length and two radial distortion  // 两个径向畸变参数
 // parameters.
 //
-// This model is equivalent to the camera model that Bundler uses
-// (except for an inverse z-axis in the camera coordinate system).
+// This model is equivalent to the camera model that Bundler uses  // 该模型等效于 Bundler 使用的相机模型
+// (except for an inverse z-axis in the camera coordinate system).  //不同之处在于相机坐标系中的 z 轴方向相反
 //
 // Parameter list is expected in the following order:
 //
@@ -234,9 +244,9 @@ struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
 
 // OpenCV camera model.
 //
-// Based on the pinhole camera model. Additionally models radial and
+// Based on the pinhole camera model. Additionally models radial and  // 基于针孔相机模型，此外还对径向和切向畸变进行建模（最多包含二阶系数）
 // tangential distortion (up to 2nd degree of coefficients). Not suitable for
-// large radial distortions of fish-eye cameras.
+// large radial distortions of fish-eye cameras.    // 不适用于具有大径向畸变的鱼眼相机。
 //
 // Parameter list is expected in the following order:
 //
@@ -267,7 +277,7 @@ struct OpenCVFisheyeCameraModel
 
 // Full OpenCV camera model.
 //
-// Based on the pinhole camera model. Additionally models radial and
+// Based on the pinhole camera model. Additionally models radial and   // 基于针孔相机模型，此外还对径向和切向畸变进行建模
 // tangential Distortion.
 //
 // Parameter list is expected in the following order:
@@ -282,15 +292,15 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 
 // FOV camera model.
 //
-// Based on the pinhole camera model. Additionally models radial distortion.
-// This model is for example used by Project Tango for its equidistant
+// Based on the pinhole camera model. Additionally models radial distortion.  基于针孔相机模型，此外还对径向畸变进行建模
+// This model is for example used by Project Tango for its equidistant        例如，该模型被 Project Tango 用于其等距标定类型
 // calibration type.
 //
 // Parameter list is expected in the following order:
 //
 //    fx, fy, cx, cy, omega
 //
-// See:
+// See:  // 参考文献
 // Frederic Devernay, Olivier Faugeras. Straight lines have to be straight:
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
@@ -333,11 +343,11 @@ struct RadialFisheyeCameraModel
 };
 
 // Camera model with radial and tangential distortion coefficients and
-// additional coefficients accounting for thin-prism distortion.
+// additional coefficients accounting for thin-prism distortion.  具有径向和切向畸变系数的相机模型，并包含用于薄棱镜畸变的额外系数
 //
 // This camera model is described in
 //
-//    "Camera Calibration with Distortion Models and Accuracy Evaluation",
+//    "Camera Calibration with Distortion Models and Accuracy Evaluation",   参考文献
 //    J Weng et al., TPAMI, 1992.
 //
 // Parameter list is expected in the following order:
@@ -349,11 +359,12 @@ struct ThinPrismFisheyeCameraModel
   CAMERA_MODEL_DEFINITIONS(10, "THIN_PRISM_FISHEYE", 12)
 };
 
-// Check whether camera model with given name or identifier exists.
-bool ExistsCameraModelWithName(const std::string& model_name);
-bool ExistsCameraModelWithId(const int model_id);
 
-// Convert camera name to unique camera model identifier.
+// Check whether camera model with given name or identifier exists.  检查是否存在具有指定名称或标识符的相机模型
+bool ExistsCameraModelWithName(const std::string& model_name);   // 根据相机模型名称检查是否存在
+bool ExistsCameraModelWithId(const int model_id);                // 根据相机模型标识符检查是否存在
+
+// Convert camera name to unique camera model identifier.  // 将相机模型名称转换为唯一的相机模型标识符
 //
 // @param name         Unique name of camera model.
 //
@@ -367,10 +378,10 @@ int CameraModelNameToId(const std::string& model_name);
 // @return             Unique name of camera model.
 std::string CameraModelIdToName(const int model_id);
 
-// Initialize camera parameters using given image properties.
+// Initialize camera parameters using given image properties.  初始化相机参数，使用给定的图像属性
 //
-// Initializes all focal length parameters to the same given focal length and
-// sets the principal point to the image center.
+// Initializes all focal length parameters to the same given focal length and  // 初始化所有焦距参数为相同的给定焦距
+// sets the principal point to the image center.  // 设置主点到图像中心
 //
 // @param model_id      Unique identifier of camera model.
 // @param focal_length  Focal length, equal for all focal length parameters.
@@ -381,12 +392,12 @@ std::vector<double> CameraModelInitializeParams(const int model_id,
                                                 const size_t width,
                                                 const size_t height);
 
-// Get human-readable information about the parameter vector order.
+// Get human-readable information about the parameter vector order.  // 获取有关参数向量顺序的人类可读信息
 //
-// @param model_id     Unique identifier of camera model.
+// @param model_id     Unique identifier of camera model.    相机模型的唯一标识符
 std::string CameraModelParamsInfo(const int model_id);
 
-// Get the indices of the parameter groups in the parameter vector.
+// Get the indices of the parameter groups in the parameter vector.  // 获取参数向量中参数组的索引
 //
 // @param model_id     Unique identifier of camera model.
 const std::vector<size_t>& CameraModelFocalLengthIdxs(const int model_id);
@@ -404,7 +415,7 @@ size_t CameraModelNumParams(const int model_id);
 bool CameraModelVerifyParams(const int model_id,
                              const std::vector<double>& params);
 
-// Check whether camera has bogus parameters.
+// Check whether camera has bogus parameters.  检查相机是否有 bogus(无效的) 参数
 //
 // @param model_id                Unique identifier of camera model.
 // @param params                  Array of camera parameters.
@@ -450,26 +461,26 @@ inline void CameraModelImageToWorld(const int model_id,
                                     double* v);
 
 // Convert pixel threshold in image plane to world space by dividing
-// the threshold through the mean focal length.
+// the threshold through the mean focal length.   通过将阈值除以平均焦距，将像素阈值从图像平面转换到世界坐标系？？？
 //
 // @param model_id      Unique identifier of camera model.
 // @param params        Array of camera parameters.
-// @param threshold     Image space threshold in pixels.
+// @param threshold     Image space threshold in pixels.  图像平面中的阈值（以像素为单位）
 //
-// @ return             World space threshold.
+// @ return             World space threshold.      世界坐标系中的阈值
 inline double CameraModelImageToWorldThreshold(
     const int model_id, const std::vector<double>& params,
     const double threshold);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Implementation
+// Implementation                                                              // 实现
 ////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
 // BaseCameraModel
 
-template <typename CameraModel>
-template <typename T>
+template <typename CameraModel>  // 这两个template声明分别为模板类和模板函数指定了类型参数
+template <typename T>            // CameraModel 用于指定相机模型类型，而 T 用于指定参数的类型
 bool BaseCameraModel<CameraModel>::HasBogusParams(
     const std::vector<T>& params, const size_t width, const size_t height,
     const T min_focal_length_ratio, const T max_focal_length_ratio,
@@ -497,11 +508,11 @@ bool BaseCameraModel<CameraModel>::HasBogusFocalLength(
     const T min_focal_length_ratio, const T max_focal_length_ratio) {
   const size_t max_size = std::max(width, height);
 
-  for (const auto& idx : CameraModel::focal_length_idxs) {
-    const T focal_length_ratio = params[idx] / max_size;
+  for (const auto& idx : CameraModel::focal_length_idxs) {  //  CameraModel::focal_length_idxs 是一个静态成员变量，它存储了相机模型中的焦距参数的索引 是一个容器（std::vector<size_t>），包含多个焦距参数在 params 数组中的索引
+    const T focal_length_ratio = params[idx] / max_size;   // 计算焦距参数与最大传感器尺寸max(width, height)的比率
     if (focal_length_ratio < min_focal_length_ratio ||
         focal_length_ratio > max_focal_length_ratio) {
-      return true;
+      return true;   // 超出范围 返回true
     }
   }
 
@@ -512,9 +523,9 @@ template <typename CameraModel>
 template <typename T>
 bool BaseCameraModel<CameraModel>::HasBogusPrincipalPoint(
     const std::vector<T>& params, const size_t width, const size_t height) {
-  const T cx = params[CameraModel::principal_point_idxs[0]];
+  const T cx = params[CameraModel::principal_point_idxs[0]];  // 从 params 向量中获取主点的 x 和 y 坐标。CameraModel::principal_point_idxs 是一个静态成员变量，存储主点的索引
   const T cy = params[CameraModel::principal_point_idxs[1]];
-  return cx < 0 || cx > width || cy < 0 || cy > height;
+  return cx < 0 || cx > width || cy < 0 || cy > height;  // 如果主点坐标超出图像边界，则返回 true，表示主点有误
 }
 
 template <typename CameraModel>
@@ -522,7 +533,7 @@ template <typename T>
 bool BaseCameraModel<CameraModel>::HasBogusExtraParams(
     const std::vector<T>& params, const T max_extra_param) {
   for (const auto& idx : CameraModel::extra_params_idxs) {
-    if (std::abs(params[idx]) > max_extra_param) {
+    if (std::abs(params[idx]) > max_extra_param) {     // 怎么使用的后续  我看很多都不一样呢  用到再看吧zbw？？？
       return true;
     }
   }
@@ -539,15 +550,15 @@ T BaseCameraModel<CameraModel>::ImageToWorldThreshold(const T* params,
     mean_focal_length += params[idx];
   }
   mean_focal_length /= CameraModel::focal_length_idxs.size();
-  return threshold / mean_focal_length;
+  return threshold / mean_focal_length;     // 也没有问题，但是这个阈值用法为？？？zbw
 }
 
 template <typename CameraModel>
 template <typename T>
 void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params, T* u,
                                                          T* v) {
-  // Parameters for Newton iteration using numerical differentiation with
-  // central differences, 100 iterations should be enough even for complex
+  // Parameters for Newton iteration using numerical differentiation with    使用数值微分的中央差分法进行牛顿迭代的参数
+  // central differences, 100 iterations should be enough even for complex    对于复杂的相机模型以及高阶项，100次迭代应该足够
   // camera models with higher order terms.
   const size_t kNumIterations = 100;
   const double kMaxStepNorm = 1e-10;
@@ -588,14 +599,14 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params, T* u,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// SimplePinholeCameraModel
+// SimplePinholeCameraModel     3dgs说是用的是这个  但是我觉得哦我写的其实不是 好像是opencv呢
 
 std::string SimplePinholeCameraModel::InitializeParamsInfo() {
   return "f, cx, cy";
 }
 
-std::vector<size_t> SimplePinholeCameraModel::InitializeFocalLengthIdxs() {
-  return {0};
+std::vector<size_t> SimplePinholeCameraModel::InitializeFocalLengthIdxs() {  // 返回焦距参数的索引列表
+  return {0};  // 返回一个包含一个元素 0 的向量。这个元素 0 代表了焦距参数的索引位置（索引为 0）
 }
 
 std::vector<size_t> SimplePinholeCameraModel::InitializePrincipalPointIdxs() {
@@ -608,7 +619,7 @@ std::vector<size_t> SimplePinholeCameraModel::InitializeExtraParamsIdxs() {
 
 std::vector<double> SimplePinholeCameraModel::InitializeParams(
     const double focal_length, const size_t width, const size_t height) {
-  return {focal_length, width / 2.0, height / 2.0};
+  return {focal_length, width / 2.0, height / 2.0};    // cx 和 cy 一般表示相机的主点坐标（principal point），其默认值通常是图像宽度和高度的一半!!!!
 }
 
 template <typename T>
@@ -789,12 +800,12 @@ void RadialCameraModel::WorldToImage(const T* params, const T u, const T v,
 
   // Distortion
   T du, dv;
-  Distortion(&params[3], u, v, &du, &dv);
+  Distortion(&params[3], u, v, &du, &dv);  // 调用 Distortion 函数来计算 (u, v) 点的畸变影响
   *x = u + du;
-  *y = v + dv;
+  *y = v + dv;  // 将畸变调整后的坐标 (u + du, v + dv) 存储到输出变量 x 和 y 中
 
   // Transform to image coordinates
-  *x = f * *x + c1;
+  *x = f * *x + c1;  // 将畸变调整后的横坐标 *x 乘以焦距 f，并加上主点的横坐标 c1，得到图像坐标系中的横坐标   这个人不加括号Orz！
   *y = f * *y + c2;
 }
 
@@ -1481,8 +1492,9 @@ void ThinPrismFisheyeCameraModel::Distortion(const T* extra_params, const T u,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-void CameraModelWorldToImage(const int model_id,
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+void CameraModelWorldToImage(const int model_id,                               // 根据不同的相机模型id选择对应的方法
                              const std::vector<double>& params, const double u,
                              const double v, double* x, double* y) {
   switch (model_id) {
@@ -1514,7 +1526,7 @@ void CameraModelImageToWorld(const int model_id,
 
 double CameraModelImageToWorldThreshold(const int model_id,
                                         const std::vector<double>& params,
-                                        const double threshold) {
+                                        const double threshold) {          // 这里不对，因为阈值计算方法就一个，作者自己没写
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
   case CameraModel::kModelId:                                            \
@@ -1526,7 +1538,7 @@ double CameraModelImageToWorldThreshold(const int model_id,
 #undef CAMERA_MODEL_CASE
   }
 
-  return -1;
+  return -1;    // 这个return是CameraModelImageToWorldThreshold的返回值。如果 switch 语句中没有匹配到任何 case，程序会直接跳过 switch 块，继续执行后续的代码。因此，return -1; 是为了处理这种情况，确保函数在所有情况下都有返回值。
 }
 
 }  // namespace colmap

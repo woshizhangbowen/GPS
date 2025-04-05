@@ -75,7 +75,7 @@ class Camera {
   inline bool HasPriorFocalLength() const;   // 判断相机是否有焦距的先验值
   inline void SetPriorFocalLength(const bool prior);
 
-  // Access principal point parameters. Only works if there are two   主点参数：？？？？
+  // Access principal point parameters. Only works if there are two   主点参数：
   // principal point parameters.    访问主点参数的方法，但这些方法仅在相机模型中有两个主点参数时有效。
   double PrincipalPointX() const;
   double PrincipalPointY() const;
@@ -104,10 +104,10 @@ class Camera {
   inline double* ParamsData();   //获取指向参数向量数据的非常量指针，用于修改参数向量。
   inline void SetParams(const std::vector<double>& params);  // 设置参数向量
 
-  // Concatenate parameters as comma-separated list.  拼接参数为逗号分隔列表。
+  // Concatenate parameters as comma-separated list.  拼接参数为逗号分隔列表。将相机参数转换为逗号分隔的字符串  如果相机参数是 {1.0, 2.0, 3.0}，那么返回的字符串可能是 "1.0,2.0,3.0"
   std::string ParamsToString() const;  
 
-  // Set camera parameters from comma-separated list.  从逗号分隔列表中设置相机参数。
+  // Set camera parameters from comma-separated list.  从逗号分隔列表中设置相机参数。从逗号分隔的字符串中解析并设置相机参数
   bool SetParamsFromString(const std::string& string);
 
   // Check whether parameters are valid, i.e. the parameter vector has  检查相机参数是否有效
@@ -120,54 +120,54 @@ class Camera {
                       const double max_extra_param) const;
 
   // Initialize parameters for given camera model and focal length, and set
-  // the principal point to be the image center.
+  // the principal point to be the image center.  为给定的相机模型和焦距初始化参数，并将主点设置为图像中心
   void InitializeWithId(const int model_id, const double focal_length,
                         const size_t width, const size_t height);
   void InitializeWithName(const std::string& model_name,
                           const double focal_length, const size_t width,
                           const size_t height);
 
-  // Project point in image plane to world / infinity.
+  // Project point in image plane to world / infinity.  将点从图像平面投影到世界 / 无穷
   Eigen::Vector2d ImageToWorld(const Eigen::Vector2d& image_point) const;
 
-  // Convert pixel threshold in image plane to world space.
+  // Convert pixel threshold in image plane to world space.  像素阈值在图像平面中转换为世界空间
   double ImageToWorldThreshold(const double threshold) const;
 
-  // Project point from world / infinity to image plane.
+  // Project point from world / infinity to image plane. 
   Eigen::Vector2d WorldToImage(const Eigen::Vector2d& world_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
-  // and the principal point.
+  // and the principal point.  调整相机的尺寸，并相应地调整焦距和主点位置
   void Rescale(const double scale);
   void Rescale(const size_t width, const size_t height);
 
  private:
-  // The unique identifier of the camera. If the identifier is not specified
-  // it is set to `kInvalidCameraId`.
+  // The unique identifier of the camera. If the identifier is not specified   相机的唯一标识符
+  // it is set to `kInvalidCameraId`.   如果这个标识符没有被指定，它会被设置为一个无效的相机ID kInvalidCameraId
   camera_t camera_id_;
 
-  // The identifier of the camera model. If the camera model is not specified
+  // The identifier of the camera model. If the camera model is not specified  
   // the identifier is `kInvalidCameraModelId`.
   int model_id_;
 
-  // The dimensions of the image, 0 if not initialized.
+  // The dimensions of the image, 0 if not initialized.  如果未初始化，则为0
   size_t width_;
   size_t height_;
 
   // The focal length, principal point, and extra parameters. If the camera
-  // model is not specified, this vector is empty.
+  // model is not specified(定义), this vector is empty.  
   std::vector<double> params_;
 
-  // Whether there is a safe prior for the focal length,
-  // e.g. manually provided or extracted from EXIF
+  // Whether there is a safe prior for the focal length,    是否存在一个安全的先验焦距值
+  // e.g. manually provided or extracted from EXIF   例如，手动提供的或从EXIF数据中提取的
   bool prior_focal_length_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// Implementation
+// Implementation    实现
 ////////////////////////////////////////////////////////////////////////////////
 
-camera_t Camera::CameraId() const { return camera_id_; }
+camera_t Camera::CameraId() const { return camera_id_; }  
 
 void Camera::SetCameraId(const camera_t camera_id) { camera_id_ = camera_id; }
 
@@ -187,9 +187,9 @@ void Camera::SetPriorFocalLength(const bool prior) {
   prior_focal_length_ = prior;
 }
 
-size_t Camera::NumParams() const { return params_.size(); }
+size_t Camera::NumParams() const { return params_.size(); }  // 获取参数向量中参数的数量
 
-const std::vector<double>& Camera::Params() const { return params_; }
+const std::vector<double>& Camera::Params() const { return params_; }  // 函数重载,一个只读，一个可以修改。使用时加上const就可以使用不同的方法
 
 std::vector<double>& Camera::Params() { return params_; }
 
@@ -201,7 +201,7 @@ const double* Camera::ParamsData() const { return params_.data(); }
 
 double* Camera::ParamsData() { return params_.data(); }
 
-void Camera::SetParams(const std::vector<double>& params) { params_ = params; }
+void Camera::SetParams(const std::vector<double>& params) { params_ = params; }  // 将外部传入的相机参数设置到 Camera 类的内部成员变量 params_ 中
 
 }  // namespace colmap
 

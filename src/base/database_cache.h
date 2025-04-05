@@ -49,34 +49,34 @@
 
 namespace colmap {
 
-// A class that caches the contents of the database in memory, used to quickly
-// create new reconstruction instances when multiple models are reconstructed.
+// A class that caches the contents of the database in memory, used to quickly  // 一个将数据库内容缓存在内存中的类，
+// create new reconstruction instances when multiple models are reconstructed.  // 用于在重建多个模型时快速创建新的重建实例
 class DatabaseCache {
  public:
   DatabaseCache();
 
-  // Get number of objects.
+  // Get number of objects.  // 获取缓存中对象数量
   inline size_t NumCameras() const;
   inline size_t NumImages() const;
 
-  // Get specific objects.
+  // Get specific objects.  // 根据camera_id和image_id获取特定对象
   inline class Camera& Camera(const camera_t camera_id);
   inline const class Camera& Camera(const camera_t camera_id) const;
   inline class Image& Image(const image_t image_id);
   inline const class Image& Image(const image_t image_id) const;
 
   // Get all objects.
-  inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;
-  inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;
+  inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;  // alignment.h中定义的函数，返回一个常量引用，指向存储所有相机的容器 cameras_
+  inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;  // 容器的类型是 EIGEN_STL_UMAP(image_t, class Image),基于 std::unordered_map 的自定义类型
 
-  // Check whether specific object exists.
+  // Check whether specific object exists.  // 检查缓存中是否存在特定的相机或图像
   inline bool ExistsCamera(const camera_t camera_id) const;
   inline bool ExistsImage(const image_t image_id) const;
 
-  // Get reference to correspondence graph.
-  inline const class CorrespondenceGraph& CorrespondenceGraph() const;
+  // Get reference to correspondence graph.  // 获取对应图
+  inline const class CorrespondenceGraph& CorrespondenceGraph() const;  // 返回缓存中correspondence_graph_ 的常量引用
 
-  // Manually add data to cache.
+  // Manually add data to cache.  // 手动添加数据到缓存中
   void AddCamera(const class Camera& camera);
   void AddImage(const class Image& image);
 
@@ -84,10 +84,10 @@ class DatabaseCache {
   //
   // @param database              Source database from which to load data.
   // @param min_num_matches       Only load image pairs with a minimum number
-  //                              of matches.
-  // @param ignore_watermarks     Whether to ignore watermark image pairs.
-  // @param image_names           Whether to use only load the data for a subset
-  //                              of the images. All images are used if empty.
+  //                              of matches.                               // 仅加载匹配数大于等于该值的图像对!!!!!!
+  // @param ignore_watermarks     Whether to ignore watermark image pairs.  // 忽略水印图像对
+  // @param image_names           Whether to use only load the data for a subset  // 一个字符串集合，指定要加载的图像子集
+  //                              of the images. All images are used if empty.   // 如果为空，则加载所有图像
   void Load(const Database& database, const size_t min_num_matches,
             const bool ignore_watermarks,
             const std::unordered_set<std::string>& image_names,
