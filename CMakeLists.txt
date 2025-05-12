@@ -85,7 +85,7 @@ if(OPENMP_ENABLED)
 endif()
 
 
-# set(Ceres_DIR /usr/local/ceres_1_14/lib/cmake/Ceres )  这句话作者加的
+#set(Ceres_DIR /usr/local/ceres_1_14/lib/cmake/Ceres )
 find_package(Ceres QUIET HINTS ${CERES_DIR_HINTS})
 if (NOT Ceres_FOUND)
   set(CERES_INCLUDE_DIRS

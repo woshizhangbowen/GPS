@@ -427,7 +427,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
    }
   
-   if(reconstruction->b_usable_prior && image.HasTvecPrior() && image.TvecPrior() !=Eigen::Vector3d(0,0,0))
+   if(reconstruction->b_usable_prior and image.HasTvecPrior() and image.TvecPrior() !=Eigen::Vector3d(0,0,0))
     {
         Vec3 weight(100,100,100);//
         ceres::CostFunction * cost_function= PoseCenterConstraintCostFunction::Create(image.TvecPrior(),

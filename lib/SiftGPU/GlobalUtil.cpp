@@ -26,9 +26,6 @@ using std::cout;
 
 #include "GL/glew.h"
 #include "GlobalUtil.h"
-#include <GL/gl.h>
-#include <GL/wglext.h>
-
 
 #if defined(_WIN32)
   #define WIN32_LEAN_AND_MEAN
@@ -134,26 +131,25 @@ ClockTimer GlobalUtil::	_globalTimer;
 
 
 #ifdef _DEBUG
-typedef const GLubyte* (*PFNGLUERRORSTRINGPROC)(GLenum);
-
-void GlobalUtil::CheckErrorsGL(const char* location) {
+void GlobalUtil::CheckErrorsGL(const char* location)
+{
 	GLuint errnum;
-	while ((errnum = glGetError()) != GL_NO_ERROR) {
-		PFNGLUERRORSTRINGPROC gluErrorString =
-			(PFNGLUERRORSTRINGPROC)wglGetProcAddress("gluErrorString");
-
-		if (gluErrorString) {
-			std::cerr << reinterpret_cast<const char*>(gluErrorString(errnum));
+	const char *errstr;
+	while (errnum = glGetError())
+	{
+		errstr = (const char *)(gluErrorString(errnum));
+		if(errstr) {
+			std::cerr << errstr;
 		}
 		else {
-			std::cerr << "Unknown Error " << errnum;
+			std::cerr  << "Error " << errnum;
 		}
 
-		if (location) std::cerr << " at " << location;
-		std::cerr << std::endl;
+		if(location) std::cerr  << " at " << location;
+		std::cerr  << "\n";
 	}
+	return;
 }
-
 
 #endif
 

@@ -105,10 +105,12 @@ public:
         count = 0;
     }
 
-struct CompareT {
-      bool operator()(const T& t1, const T& t2) const {
-        return t2 < t1;  // ½µÐòÅÅÁÐ
-      }
+    struct CompareT : public std::binary_function<T,T,bool>
+    {
+        bool operator()(const T& t_1, const T& t_2) const
+        {
+            return t_2 < t_1;
+        }
     };
 
     /**
